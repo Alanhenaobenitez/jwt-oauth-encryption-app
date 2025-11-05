@@ -7,14 +7,13 @@ import HomeScreen from "./app/screens/HomeScreen";
 import JwtScreen from "./app/jwt/JwtScreen";
 import OAuthScreen from "./app/oauth/OAuthScreen";
 import EncryptionScreen from "./app/encryption/EncryptionScreen";
+import AuthWithJwtScreen from "./app/jwt/AuthWithJwtScreen"; // ✅ nueva pantalla
 
 export default function App() {
-  // Estado para manejar la pantalla actual
-  const [screen, setScreen] = useState<"home" | "jwt" | "oauth" | "encryption">(
-    "home"
-  );
+  const [screen, setScreen] = useState<
+    "home" | "jwt" | "oauth" | "encryption" | "auth"
+  >("home");
 
-  // Renderiza la pantalla según el estado
   const renderScreen = () => {
     switch (screen) {
       case "jwt":
@@ -23,6 +22,8 @@ export default function App() {
         return <OAuthScreen onBack={() => setScreen("home")} />;
       case "encryption":
         return <EncryptionScreen onBack={() => setScreen("home")} />;
+      case "auth":
+        return <AuthWithJwtScreen onBack={() => setScreen("home")} />; // ✅ nuevo caso
       default:
         return <HomeScreen onNavigate={setScreen} />;
     }
@@ -36,11 +37,10 @@ export default function App() {
   );
 }
 
-// 🎨 Estilos globales
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0d1117", // fondo oscuro elegante
+    backgroundColor: "#0d1117",
   },
   inner: {
     flex: 1,

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
 type Props = {
-  onNavigate: (screen: "jwt" | "oauth" | "encryption") => void;
+  onNavigate: (screen: "jwt" | "oauth" | "encryption" | "auth") => void;
 };
 
 export default function HomeScreen({ onNavigate }: Props) {
@@ -21,6 +21,11 @@ export default function HomeScreen({ onNavigate }: Props) {
 
       <TouchableOpacity style={styles.button} onPress={() => onNavigate("encryption")}>
         <Text style={styles.btnText}>Ver Cifrado</Text>
+      </TouchableOpacity>
+
+      {/* ✅ Nuevo botón */}
+      <TouchableOpacity style={styles.button} onPress={() => onNavigate("auth")}>
+        <Text style={styles.btnText}>Autenticación con JWT</Text>
       </TouchableOpacity>
     </View>
   );
