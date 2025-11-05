@@ -26,7 +26,8 @@ export default function OAuthScreen({ onBack }: { onBack: () => void }) {
       scopes: ["openid", "profile", "email"],
       redirectUri: AuthSession.makeRedirectUri({
         // @ts-ignore
-        useProxy: true, // Permite usar Expo Go sin configuración extra
+        useProxy: false,
+        native: "http://localhost:8081" // Permite usar Expo Go sin configuración extra
       }),
     },
     discovery
