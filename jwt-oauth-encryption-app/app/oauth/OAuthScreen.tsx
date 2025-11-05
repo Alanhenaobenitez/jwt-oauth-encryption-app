@@ -4,99 +4,85 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ScrollView,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import LoggedInScreen from "./LoggedInScreen";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export default function OAuthScreen({ onBack }: { onBack: () => void }) {
+export default function OAuthScreenDesktop({ onBack }: { onBack: () => void }) {
   const [userInfo, setUserInfo] = useState<any>(null);
 
-  // Descubrimiento automático de endpoints de Google OAuth
-  const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
+  const discovery = AuthSession.useAutoDiscovery(
+    "https://accounts.google.com"
+  ) as AuthSession.DiscoveryDocument | null;
 
-  // Configuración de la solicitud de autenticación
+  // 🔗 Local redirect (sin proxy)
+  const redirectUri = AuthSession.makeRedirectUri({
+    useProxy: false,
+  } as any);
+
+  console.log("🔗 Redirect URI generado:", redirectUri);
+
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
-      clientId:
-        "360346639771-5r63rm14n097tflp9pl5c2qrmbkbrug7.apps.googleusercontent.com", // 👈 Tu client ID de Google Cloud Console
+      clientId: "360346639771-rpaf60jkfrcom8mmlj9vobc7ar44rdcp.apps.googleusercontent.com",
       scopes: ["openid", "profile", "email"],
-      redirectUri: AuthSession.makeRedirectUri({
-        // @ts-ignore
-        useProxy: false,
-        native: "http://localhost:8081" // Permite usar Expo Go sin configuración extra
-      }),
+      redirectUri,
     },
-    discovery
+    discovery 
   );
 
-  // Cuando el usuario inicia sesión exitosamente
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      if (response?.type === "success" && response.authentication?.accessToken) {
-        const userInfoResponse = await fetch(
-          "https://www.googleapis.com/userinfo/v2/me",
+    const getUserData = async () => {
+      if (response?.type === "success" && response.params?.code && discovery) {
+        console.log("✅ Código de autorización:", response.params.code);
+
+        // Intercambiar el código por token (Desktop no necesita secret)
+        const tokenResponse = await AuthSession.exchangeCodeAsync(
           {
-            headers: {
-              Authorization: `Bearer ${response.authentication.accessToken}`,
-            },
-          }
+            code: response.params.code,
+            clientId: "360346639771-rpaf60jkfrcom8mmlj9vobc7ar44rdcp.apps.googleusercontent.com",
+            redirectUri,
+            extraParams: { code_verifier: request?.codeVerifier || "" },
+          },
+          discovery
         );
-        const user = await userInfoResponse.json();
+
+        console.log("✅ Token obtenido:", tokenResponse.accessToken);
+
+        const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+          headers: { Authorization: `Bearer ${tokenResponse.accessToken}` },
+        });
+
+        const user = await res.json();
+        console.log("🎉 Usuario autenticado:", user);
         setUserInfo(user);
       }
     };
-    fetchUserInfo();
-  }, [response]);
+    getUserData();
+  }, [response, discovery, request, redirectUri]);
+
+  if (userInfo) {
+    return <LoggedInScreen user={userInfo} onLogout={() => setUserInfo(null)} />;
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🌍 OAuth 2.0 con Google</Text>
+      <Text style={styles.title}>🌍 OAuth 2.0 con Google (Desktop)</Text>
       <Text style={styles.text}>
-        OAuth permite acceder a recursos protegidos (como tu perfil de Google)
-        sin compartir la contraseña. Aquí puedes probar el flujo real:
+        Este flujo usa el tipo de cliente “Desktop App” y no necesita client_secret.
       </Text>
 
-      {!userInfo ? (
-        <>
-          <View style={styles.flow}>
-            <Text style={styles.box}>1️⃣ Usuario → App: Solicita acceso</Text>
-            <Text style={styles.box}>
-              2️⃣ App → Google OAuth: Pide permiso al usuario
-            </Text>
-            <Text style={styles.box}>
-              3️⃣ Google → App: Devuelve un token de acceso
-            </Text>
-            <Text style={styles.box}>
-              4️⃣ App → API: Usa ese token para acceder a tu perfil
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, !request && styles.disabled]}
-            disabled={!request}
-            onPress={() => promptAsync()}
-          >
-            <Text style={styles.buttonText}>🔐 Iniciar sesión con Google</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <View style={styles.profileBox}>
-          <Image source={{ uri: userInfo.picture }} style={styles.avatar} />
-          <Text style={styles.name}>{userInfo.name}</Text>
-          <Text style={styles.email}>{userInfo.email}</Text>
-
-          <Text style={styles.tokenLabel}>✅ Access Token:</Text>
-          <Text numberOfLines={3} style={styles.token}>
-            {response && response.type === "success"
-              ? response.authentication?.accessToken
-              : "No se obtuvo token aún"}
-          </Text>
-        </View>
-      )}
+      <TouchableOpacity
+        style={[styles.button, !request && styles.disabled]}
+        disabled={!request}
+        onPress={() => promptAsync({ useProxy: false } as any)}
+      >
+        <Text style={styles.buttonText}>🔐 Iniciar sesión con Google</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.backBtn} onPress={onBack}>
         <Text style={styles.backText}>⬅ Volver</Text>
@@ -119,46 +105,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
-  text: {
-    color: "#c9d1d9",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  flow: { gap: 8 },
-  box: {
-    backgroundColor: "#0d1117",
-    color: "#c9d1d9",
-    padding: 10,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: "#238636",
-  },
+  text: { color: "#c9d1d9", marginBottom: 20, textAlign: "center" },
   button: {
     backgroundColor: "#238636",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 10,
   },
-  buttonText: { color: "#fff", fontWeight: "bold" },
   disabled: { opacity: 0.5 },
-  profileBox: {
-    alignItems: "center",
-    backgroundColor: "#0d1117",
-    padding: 20,
-    borderRadius: 8,
-  },
-  avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 10 },
-  name: { color: "#58a6ff", fontWeight: "bold", fontSize: 18 },
-  email: { color: "#c9d1d9", marginBottom: 10 },
-  tokenLabel: { color: "#79c0ff", marginTop: 10, fontWeight: "bold" },
-  token: {
-    color: "#c9d1d9",
-    fontSize: 12,
-    backgroundColor: "#010409",
-    padding: 10,
-    borderRadius: 6,
-  },
+  buttonText: { color: "#fff", fontWeight: "bold" },
   backBtn: { marginTop: 30, alignSelf: "center" },
   backText: { color: "#58a6ff" },
 });
